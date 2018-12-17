@@ -67,7 +67,7 @@
   <div class="container">
     <div class="row justify-content-md-center">
       <div class="col-lg">
-        <h4>Results <span class="subtitle">only the first 100 results are shown*</span><button id="downloadcsv" class="btn btn-outline-success" disabled="">Download CSV (comming soon! )</button></h4>
+        <h4>Results <span class="subtitle">only the first 100 results are shown*</span><button id="downloadcsv" class="btn btn-outline-success" disabled="">Download CSV</button></h4>
         <table class="table">
           <thead>
             <tr>
@@ -190,7 +190,7 @@
             lon: lng,
             radius_units: 'km',
             extras: 'geo,date_taken,url_t,description,media,url_t',
-            per_page: 100,
+            per_page: 250,
           })
           .catch((err) => {
             alert(`Unable to search, reason ${err}`);
@@ -210,7 +210,7 @@
 
         if(stat != 'ok') throw new Error('Client found error in the response!');
 
-        // btnDownloadCsv.disabled = false;
+        btnDownloadCsv.disabled = false;
         tblNoresults.hidden = true;
         tblResults.hidden = false;
         tblResults.innerHTML = '';
@@ -263,12 +263,24 @@
 
           for(const col of csvColumns) {
             const value = col.key ? photo[ col.key ] : col.cb(photo);
-            row.push(value);
+
+            row.push(JSON.stringify(value));
           }
 
-          result.push(row);
+          result.push(row.join(','));
         }
 
+        const csv = `data:text/csv;charset=utf-8,${result.join('\n')}`;
+        const link = document.createElement('a');
+        const d = getSearchFilters();
+
+        link.setAttribute('href', encodeURI(csv));
+        link.setAttribute('download', `flickr_${new Date().toISOString()}_lat_${d.lat}_lon_${d.lng}_radius_${d.radius}.csv`);
+
+        document.body.appendChild(link);
+
+        link.click();
+        link.remove();
       });
 
       map.on('click', function(e) {
