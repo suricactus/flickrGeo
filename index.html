@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Explore Flickr Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity=" sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css"
+  integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+  crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.3.4/dist/leaflet.js"
+  integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA=="
+  crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/flickr-sdk@3.8.0/flickr-sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/csv-js@1.0.0/csv.min.js"></script>
+  <style type="text/css">
+    #map {
+      width:  100vw;
+      height: 50vh;
+    }
+
+    #noresults {
+      text-align: center;
+      font-size: 1.2rem;
+      font-style: italic;
+    }
+
+    #loading {
+      text-align: center;
+      font-size: 1.2rem;
+      font-style: italic;
+    }
+
+    .subtitle {
+      color: grey;
+      font-size: 0.7em;
+    }
+
+    .none {
+      color: grey;
+      font-style: italic;
+    }
+  </style>
+
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <a class="navbar-brand" href="#">Flickr Geosearch</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <form class="form-inline my-2 my-lg-0">
+        <input class="form-control mr-sm-2" type="number" min="-90" max="90" step="0.000000000000000001" name="lat" placeholder="Latitude" aria-label="Latitude" size="7">
+        <input class="form-control mr-sm-2" type="number" min="-180" max="180" step="0.000000000000000001" name="lng" placeholder="Longitude" aria-label="Longitude" size="7">
+        <input class="form-control mr-sm-2" type="number" min="0.1" max="32" step="0.1" name="radius" placeholder="Radius, km" aria-label="Radius" size="7">
+        <button class="btn btn-outline-success my-2 my-sm-0" type="submit" title="Click on the map holding the Ctrl key, to search for that area">Search</button>
+      </form>
+    </div>
+  </nav>
+
+  <div id="map"></div>
+
+  <div class="container">
+    <div class="row justify-content-md-center">
+      <div class="col-lg">
+        <h4>Results <span class="subtitle">only the first 100 results are shown*</span><button id="downloadcsv" class="btn btn-outline-success" disabled="">Download CSV (comming soon! )</button></h4>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Taken on</th>
+              <th>Lat</th>
+              <th>Lng</th>
+            </tr>
+          </thead>
+          <tbody id="noresults" hidden>
+            <tr>
+              <td colspan="4">No results</td>
+            </tr>
+          </tbody>
+          <tbody id="loading" hidden>
+            <tr>
+              <td colspan="4">Loading...</td>
+            </tr>
+          </tbody>
+          <tbody id="results" hidden>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+  <script type="text/javascript">
+    const INITIAL_LAT = '-1.4';
+    const INITIAL_LNG = '35';
+    const INITIAL_RADIUS = '32';
+    const INITIAL_ZOOM = 9;
+    const getFlickrUrl = (photo) => `https://www.flickr.com/photos/${photo.owner}/${photo.id}`;
+    const columns = [
+      {
+        cb: (p) => {
+          const title = p.title || '<span class="none">&lt;none&gt;</span>';
+          return `<a href="${getFlickrUrl(p)}" target="blank">${title}</a>`
+        }
+      },
+      { key: 'datetaken' },
+      { key: 'latitude' },
+      { key: 'longitude' },
+    ];
+    const csvColumns = [{
+      title: 'lat',
+      key: 'latitude',
+    }, {
+      title: 'lng',
+      key: 'longitude',
+    }, {
+      title: 'datetaken',
+      key: 'datetaken',
+    }, {
+      title: 'url',
+      cb: p => getFlickrUrl(p),
+    }, {
+      title: 'thumbnail',
+      key: 'url_t',
+    }, {
+      title: 'title',
+      key: 'title',
+    }, {
+      title: 'description',
+      cb: p => p.description && p.description.content ? p.description.content : '',
+    }];
+    let lastResult = null;
+
+    const parseQuery = (queryString) => {
+      const query = {};
+      const pairs = (queryString[0] === '?' ? queryString.substr(1) : queryString).split(/\&|;/);
+
+      for(const pair of pairs) {
+          const [name, value] = pair.split('=');
+          query[decodeURIComponent(name)] = decodeURIComponent(value || '');
+      }
+      return query;
+    };
+    const init = () => {
+      const map = L.map('map').setView([INITIAL_LAT, INITIAL_LNG], INITIAL_ZOOM);
+      const qParams = parseQuery(location.search);
+      const form = document.querySelector('form');
+      const inputLat = document.querySelector('[name=lat]');
+      const inputLng = document.querySelector('[name=lng]');
+      const inputRadius = document.querySelector('[name=radius]');
+      const btnSubmit = document.querySelector('[name=lat]');
+      const tblNoresults = document.querySelector('#noresults');
+      const tblLoading = document.querySelector('#loading');
+      const tblResults = document.querySelector('#results');
+      const btnDownloadCsv = document.querySelector('#downloadcsv')
+      const searchArea = L.circle([0, 0], { radius: 0 * 1000 }).addTo(map);
+      const markerLayer = L.layerGroup().addTo(map);
+
+      const updateSearch = (lat, lng, radius) => {
+        inputLat.value = lat;
+        inputLng.value = lng;
+        inputRadius.value = radius;
+      };
+
+      const getSearchFilters = () => ({
+        lat: inputLat.value,
+        lng: inputLng.value,
+        radius: inputRadius.value,
+      });
+
+      const search = ({ lat, lng, radius }) => {
+        tblLoading.hidden = false;
+        tblResults.hidden = true;
+        tblNoresults.hidden = true;
+        btnDownloadCsv.disabled = true;
+        markerLayer.clearLayers();
+
+        searchArea.setLatLng([lat, lng])
+          .setRadius(radius * 1000); // Leaflet.js requires it in meters
+
+        return flickr.photos.search({
+            // text: 'doggo',
+            radius,
+            lat,
+            lon: lng,
+            radius_units: 'km',
+            extras: 'geo,date_taken,url_t,description,media,url_t',
+            per_page: 100,
+          })
+          .catch((err) => {
+            alert(`Unable to search, reason ${err}`);
+            console.error('Error: ', err);
+
+            tblNoresults.hidden = false;
+          })
+          .finally(() => {
+            tblLoading.hidden = true;
+          })
+          .then(renderResult);
+      };
+      const renderResult = ({ body = {} }) => {
+        const { photos, stat } = body;
+
+        lastResult = photos;
+
+        if(stat != 'ok') throw new Error('Client found error in the response!');
+
+        // btnDownloadCsv.disabled = false;
+        tblNoresults.hidden = true;
+        tblResults.hidden = false;
+        tblResults.innerHTML = '';
+
+        for(const photo of photos.photo) {
+          const row = tblResults.insertRow();
+
+          for(const col of columns) {
+            const descr = photo.description && photo.description.content ? photo.description.content : '';
+            const cell = row.insertCell(-1);
+
+            cell.innerHTML = col.key ? photo[ col.key ] : col.cb(photo);
+
+            L.marker([photo.latitude, photo.longitude])
+              .addTo(markerLayer)
+              .bindPopup(`
+                <h4>${photo.title}</h4>
+                <p>${descr}</p>
+                <p><em>${photo.datetaken}</em></p>
+                <p>
+                  <a href="${getFlickrUrl(photo)}" target="blank">
+                    <img src="${photo.url_t}" />
+                  </a>
+                </p>`);
+          }
+        }
+      };
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+      updateSearch(INITIAL_LAT, INITIAL_LNG, INITIAL_RADIUS);
+
+      if(!qParams.apiKey) return alert('Please provide query parameter apiKey with value your API key from Flickr!');
+
+      const flickr = new Flickr(qParams.apiKey);
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        search(getSearchFilters());
+      });
+
+      btnDownloadCsv.addEventListener('click', (e) => {
+        if(!lastResult) return;
+
+        const result = [];
+
+        result.push(csvColumns.map(c => c.title));
+
+        for(const photo of lastResult.photo) {
+          const row = [];
+
+          for(const col of csvColumns) {
+            const value = col.key ? photo[ col.key ] : col.cb(photo);
+            row.push(value);
+          }
+
+          result.push(row);
+        }
+
+      });
+
+      map.on('click', function(e) {
+        if(!e.originalEvent.ctrlKey) return;
+
+        updateSearch(e.latlng.lat, e.latlng.lng, getSearchFilters().radius);
+
+        search(getSearchFilters());
+      });
+
+      search(getSearchFilters());
+    }
+
+
+    init();
+
+
+  </script>
+</body>
+</html>
