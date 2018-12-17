@@ -33,6 +33,10 @@
       font-style: italic;
     }
 
+    #total {
+      font-weight: bold;
+    }
+
     .subtitle {
       color: grey;
       font-size: 0.7em;
@@ -54,9 +58,9 @@
 
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <form class="form-inline my-2 my-lg-0">
-        <input class="form-control mr-sm-2" type="number" min="-90" max="90" step="0.000000000000000001" name="lat" placeholder="Latitude" aria-label="Latitude" size="7">
-        <input class="form-control mr-sm-2" type="number" min="-180" max="180" step="0.000000000000000001" name="lng" placeholder="Longitude" aria-label="Longitude" size="7">
-        <input class="form-control mr-sm-2" type="number" min="0.1" max="32" step="0.1" name="radius" placeholder="Radius, km" aria-label="Radius" size="7">
+        <label>Lat: <input class="form-control mr-sm-2" type="number" min="-90" max="90" step="0.000000000000000001" name="lat" placeholder="Latitude" aria-label="Latitude" size="7"></label>
+        <label>Lon:<input class="form-control mr-sm-2" type="number" min="-180" max="180" step="0.000000000000000001" name="lng" placeholder="Longitude" aria-label="Longitude" size="7"></label>
+        <label>Radius: <input class="form-control mr-sm-2" type="number" min="0.1" max="32" step="0.1" name="radius" placeholder="Radius, km" aria-label="Radius" size="7"></label>
         <button class="btn btn-outline-success my-2 my-sm-0" type="submit" title="Click on the map holding the Ctrl key, to search for that area">Search</button>
       </form>
     </div>
@@ -67,7 +71,7 @@
   <div class="container">
     <div class="row justify-content-md-center">
       <div class="col-lg">
-        <h4>Results <span class="subtitle">only the first 100 results are shown*</span><button id="downloadcsv" class="btn btn-outline-success" disabled="">Download CSV</button></h4>
+        <h4>Results <span class="subtitle">up to 250 results shown of <span id="total">unknown</span> total*</span><button id="downloadcsv" class="btn btn-outline-success" disabled="">Download CSV</button></h4>
         <table class="table">
           <thead>
             <tr>
@@ -100,6 +104,7 @@
     const INITIAL_LNG = '35';
     const INITIAL_RADIUS = '32';
     const INITIAL_ZOOM = 9;
+    const UNKNOWN = 'unknown';
     const getFlickrUrl = (photo) => `https://www.flickr.com/photos/${photo.owner}/${photo.id}`;
     const columns = [
       {
@@ -157,7 +162,8 @@
       const tblNoresults = document.querySelector('#noresults');
       const tblLoading = document.querySelector('#loading');
       const tblResults = document.querySelector('#results');
-      const btnDownloadCsv = document.querySelector('#downloadcsv')
+      const btnDownloadCsv = document.querySelector('#downloadcsv');
+      const labelTotal = document.querySelector('#total');
       const searchArea = L.circle([0, 0], { radius: 0 * 1000 }).addTo(map);
       const markerLayer = L.layerGroup().addTo(map);
 
@@ -179,12 +185,12 @@
         tblNoresults.hidden = true;
         btnDownloadCsv.disabled = true;
         markerLayer.clearLayers();
+        labelTotal.innerHTML = UNKNOWN;
 
         searchArea.setLatLng([lat, lng])
           .setRadius(radius * 1000); // Leaflet.js requires it in meters
 
         return flickr.photos.search({
-            // text: 'doggo',
             radius,
             lat,
             lon: lng,
@@ -214,6 +220,7 @@
         tblNoresults.hidden = true;
         tblResults.hidden = false;
         tblResults.innerHTML = '';
+        labelTotal.innerHTML = photos.total;
 
         for(const photo of photos.photo) {
           const row = tblResults.insertRow();
