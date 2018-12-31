@@ -99,7 +99,10 @@
   </div>
 
 
-  <script type="text/javascript">
+  <!-- <script type="text/javascript" type="module" src="./flickrApi2CsvMap.mjs"></script> -->
+  <script type="module">
+    import flickrApi2CsvMap from './flickrApi2CsvMap.mjs';
+
     const INITIAL_LAT = '-1.4';
     const INITIAL_LNG = '35';
     const INITIAL_RADIUS = '32';
@@ -195,7 +198,7 @@
             lat,
             lon: lng,
             radius_units: 'km',
-            extras: 'geo,date_taken,url_t,description,media,url_t',
+            extras: 'geo,date_taken,url_t,description,media,url_o',
             per_page: 250,
           })
           .catch((err) => {
@@ -263,15 +266,15 @@
 
         const result = [];
 
-        result.push(csvColumns.map(c => c.title));
+        result.push(Object.keys(flickrApi2CsvMap));
 
         for(const photo of lastResult.photo) {
           const row = [];
 
-          for(const col of csvColumns) {
-            const value = col.key ? photo[ col.key ] : col.cb(photo);
+          for(const [col, cb] of Object.entries(flickrApi2CsvMap)) {
+            const value = cb(photo);
 
-            row.push(JSON.stringify(value));
+            row.push(value ? JSON.stringify(value.replace(',', '\\,')) : null);
           }
 
           result.push(row.join(','));
