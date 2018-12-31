@@ -1,3 +1,5 @@
+// usage: node --experimental-modules ./flickr.mjs
+
 import Flickr from 'flickr-sdk';
 import fs from 'fs';
 import csv from 'csv';
